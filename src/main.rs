@@ -2,9 +2,10 @@ use dotenv::dotenv;
 
 use poise::serenity_prelude as serenity;
 
+mod embeds;
 mod osu;
 mod emojis;
-mod roles;
+mod defaults;
 mod commands;
 mod events;
 

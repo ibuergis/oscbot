@@ -4,6 +4,8 @@ use rosu_v2::prelude as osu;
 
 use crate::{Error};
 
+pub mod formatter;
+
 static OSU: OnceLock<osu::Osu> = OnceLock::new();
 
 pub async fn initialize_osu() -> Result<(), Error> {
