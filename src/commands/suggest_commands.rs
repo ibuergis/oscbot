@@ -1,14 +1,10 @@
 use std::vec;
 
-use poise::serenity_prelude::{self as serenity, CreateEmbed};
+use poise::serenity_prelude as serenity;
 use rosu_v2::prelude as rosu;
-use crate::{Data, Context, Error, defaults, embeds, osu};
+use crate::{Context, Error, defaults, discord_helper::MessageState, embeds, firebase, osu};
 
-async fn error_handler(error: poise::FrameworkError<'_, Data, Error>) {
-    println!("Something went horribly wrong: {:?}", error);
-}
-
-#[poise::command(slash_command, rename = "suggest", subcommands("score"), required_permissions = "SEND_MESSAGES", on_error = "error_handler")]
+#[poise::command(slash_command, rename = "suggest", subcommands("score"), required_permissions = "SEND_MESSAGES")]
 pub async fn bundle(_ctx: Context<'_>, _arg: String) -> Result<(), Error> { Ok(()) }
 
 /// Either submit score id or score file
@@ -23,11 +19,15 @@ pub async fn score(
 
     if scoreid.is_some() {
         let unwrapped_score_id = scoreid.unwrap();
+        if firebase::scores::score_already_saved(unwrapped_score_id).await {
+            embeds::single_text_response(&ctx, &format!("Score {} has already been requested", unwrapped_score_id), MessageState::WARN).await;
+            return Ok(());
+        }
         score = match osu::get_osu_instance().score(unwrapped_score_id).await {
             Ok(score) => score,
-            Err(e) => {
-                ctx.send(poise::CreateReply::default().embed(CreateEmbed::default().description(format!("Score with id {} does not exist", unwrapped_score_id)))).await?;
-                return Err(Box::new(e));
+            Err(_) => {
+                embeds::single_text_response(&ctx, &format!("Score with id {} does not exist", unwrapped_score_id), MessageState::ERROR).await;
+                return Ok(());
             }
         };
     }
@@ -42,13 +42,11 @@ pub async fn score(
             .style(serenity::ButtonStyle::Primary);
 
     let embed = embeds::score_embed(&score).await?;
+    firebase::scores::insert_score(&score.id).await;
     defaults::SUGGESTIONS_CHANNEL.send_message(ctx, serenity::CreateMessage::new()
         .embed(embed.footer(serenity::CreateEmbedFooter::new(format!("Requested by @{}", ctx.author().name))))
         .components(vec![serenity::CreateActionRow::Buttons(vec![button])])
     ).await?;
-    ctx.send(poise::CreateReply::default()
-        .embed(CreateEmbed::default()
-        .description("Score has been requested!"))
-    ).await?;
+    embeds::single_text_response(&ctx, "Score has been requested!", MessageState::INFO).await;
     Ok(())
 }

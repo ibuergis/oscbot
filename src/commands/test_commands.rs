@@ -1,17 +1,13 @@
 use poise::serenity_prelude::{self as serenity, CreateActionRow, CreateAttachment};
 
-use crate::{Context, Data, Error, embeds};
+use crate::{Context, Error, embeds};
 use crate::osu;
 use crate::generate::thumbnail;
 
-async fn error_handler(error: poise::FrameworkError<'_, Data, Error>) {
-    println!("Something went horribly wrong: {:?}", error);
-}
-
-#[poise::command(slash_command, rename = "test", subcommands("osu_client", "thumbnail"), on_error = "error_handler")]
+#[poise::command(slash_command, rename = "test", subcommands("osu_client", "thumbnail"))]
 pub async fn bundle(_ctx: Context<'_>, _arg: String) -> Result<(), Error> { Ok(()) }
 
-#[poise::command(slash_command, on_error = "error_handler")]
+#[poise::command(slash_command)]
 pub async fn osu_client(ctx: Context<'_>) -> Result<(), Error> {
     let score = osu::get_osu_instance().score(1724681877).await.expect("Score should exist");
     let embed = embeds::score_embed(&score).await?;
@@ -29,7 +25,7 @@ pub async fn osu_client(ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 
-#[poise::command(slash_command, on_error = "error_handler")]
+#[poise::command(slash_command)]
 pub async fn thumbnail(ctx: Context<'_>) -> Result<(), Error> {
     ctx.defer().await?;
     let score = osu::get_osu_instance().score(1611084369).await.expect("Score should exist");
