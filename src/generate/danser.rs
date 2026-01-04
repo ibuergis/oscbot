@@ -66,18 +66,11 @@ pub async fn render(cff: &ContextForFunctions<'_>, title: &String, beatmap_hash:
     let replay_path = &format!("{}/Replays/{}/{}.osr", env::var("OSC_BOT_DANSER_PATH").unwrap(), beatmap_hash, replay_reference);
 
     let danser_cli = env::var("OSC_BOT_DANSER_CLI").unwrap_or_else(|_| "danser-cli".to_string());
-    let use_xvfb = env::var("OSC_BOT_USE_XVFB").map(|v| v == "1" || v.eq_ignore_ascii_case("true")).unwrap_or(false);
     let stream_logs = env::var("OSC_BOT_DANSER_LOG")
         .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
         .unwrap_or(true);
 
-    let mut out = if use_xvfb {
-        let mut cmd = Command::new("xvfb-run");
-        cmd.args(["-a", &danser_cli]);
-        cmd
-    } else {
-        Command::new(&danser_cli)
-    };
+    let mut out = Command::new(&danser_cli);
 
     out.args(["-replay", replay_path, "-record"]);
     if Path::new(skin_path).is_dir() {
