@@ -579,8 +579,8 @@
     "DanserName": "danser"
   },
   "Recording": {
-    "FrameWidth": 1280,
-    "FrameHeight": 720,
+    "FrameWidth": 2560,
+    "FrameHeight": 1440,
     "FPS": 60,
     "EncodingFPSCap": 0,
     "Encoder": "h264_nvenc",
@@ -604,7 +604,7 @@
       "Bitrate": "10M",
       "CQ": 16,
       "Profile": "high",
-      "Preset": "p3",
+      "Preset": "p7",
       "AdditionalOptions": ""
     },
     "hevc_nvenc": {
