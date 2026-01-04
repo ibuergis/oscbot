@@ -602,9 +602,9 @@
     "h264_nvenc": {
       "RateControl": "cq",
       "Bitrate": "10M",
-      "CQ": 16,
+      "CQ": 20,
       "Profile": "high",
-      "Preset": "p7",
+      "Preset": "p3",
       "AdditionalOptions": ""
     },
     "hevc_nvenc": {
