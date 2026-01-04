@@ -15,10 +15,10 @@ services:
       NVIDIA_DRIVER_CAPABILITIES: all
       NVIDIA_VISIBLE_DEVICES: all
     volumes:
-      - ./volume/oscbot/Songs:/app/danser/Songs
-      - ./volume/oscbot/Skins:/app/danser/Skins
-      - ./volume/oscbot/Replays:/app/danser/Replays
-      - ./volume/oscbot/videos:/app/danser/videos
+      - ./volume/Songs:/app/danser/Songs
+      - ./volume/Skins:/app/danser/Skins
+      - ./volume/Replays:/app/danser/Replays
+      - ./volume/videos:/app/danser/videos
       - ./videoForRegen:/app/oscbot/videoForRegen
       - ./token.json:/app/oscbot/token.json
       - ./youtube_secret.json:/app/oscbot/youtube_secret.json:ro
