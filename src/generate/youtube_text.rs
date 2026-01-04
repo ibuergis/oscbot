@@ -18,7 +18,11 @@ pub async fn generate_title_with_replay(replay: &osu_db::Replay, map: &rosu::Bea
 fn generate_title(map: &rosu::BeatmapExtended, username: &String, stars: f32, mods: String) -> String {
     let mapset = map.mapset.as_ref().expect("missing mapset");
 
-    format!("{} | {} - {} [{}] {:.2}⭐ +{}", username, mapset.artist, mapset.title, map.version, stars, mods)
+    if mods != "" {
+         return format!("{} | {} - {} [{}] {:.2}⭐ +{}", username, mapset.artist, mapset.title, map.version, stars, mods);
+    }
+
+    format!("{} | {} - {} [{}] {:.2}⭐", username, mapset.artist, mapset.title, map.version, stars)
 }
 
 pub fn generate_description(userid: u32, mapid: u32, score: Option<&rosu::Score>, time_string: Option<String>) -> String {

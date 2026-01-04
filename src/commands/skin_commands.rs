@@ -1,7 +1,7 @@
 use poise::{CreateReply, serenity_prelude::{self as serenity, CreateEmbed, CreateEmbedAuthor}};
 use url::Url;
 
-use crate::{Context, Error, discord_helper::MessageState, embeds::single_text_response, firebase};
+use crate::{Context, Error, discord_helper::MessageState, embeds::single_text_response, firebase, generate::danser, osu};
 use crate::discord_helper::user_has_replay_role;
 
 async fn has_replay_role(ctx: Context<'_>) -> Result<bool, Error> {
@@ -26,11 +26,30 @@ pub async fn set(
     ctx: Context<'_>,
     #[description = "link to your skin"] url: String,
 ) -> Result<(), Error> {
-    if !is_url(&url) {
-        single_text_response(&ctx, "Please enter a url", MessageState::WARN, false).await;
+    ctx.defer().await?;
+    if !is_url(&url) || !url.starts_with("https://git.sulej.net/") || !url.ends_with(".osk") {
+        single_text_response(&ctx, "Please enter the download link to your skin in https://git.sulej.net/", MessageState::WARN, false).await;
         return Ok(());
     }
-    firebase::user::save_skin(&ctx.author().id.to_string(), &url).await;
+
+    let member = ctx.author_member().await.unwrap();
+    let username = member.display_name();
+    let user = match osu::get_osu_instance().user(username).await {
+        Ok(user) => user,
+        Err(_) =>  {
+            single_text_response(&ctx, "Your username is not related to your osu!account. Please inform the mods to rename you!", MessageState::SUCCESS, false).await;
+            return Ok(())
+        }
+    };
+
+    let skin_upload_successful = danser::attach_skin_file(user.user_id, &url).await.unwrap();
+
+    if !skin_upload_successful {
+        single_text_response(&ctx, "The skin file could not be downloaded", MessageState::WARN, false).await;
+        return Ok(());
+    }
+
+    firebase::user::save_skin(&user.user_id.to_string(), &url).await;
     single_text_response(&ctx, "Skin has been saved", MessageState::SUCCESS, false).await;
     Ok(())
 }

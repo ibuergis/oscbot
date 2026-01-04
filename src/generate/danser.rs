@@ -210,11 +210,19 @@ pub async fn cleanup_files(beatmap_hash: &String, replay_reference: &String, vid
     _ = remove_file(video_path);
 }
 
-pub async fn _attach_skin_file(user_id: u32, bytes: &Vec<u8>) -> Result<(), Error> {
+pub async fn attach_skin_file(user_id: u32, url: &String) -> Result<bool, Error> {
     let path = &format!("{}/Skins/{}", env::var("OSC_BOT_DANSER_PATH").unwrap(), user_id);
+
+    let client = reqwest::Client::new();
+    let resp = client.get(url).send().await?.error_for_status()?;
+
+    let bytes = match resp.bytes().await {
+        Ok(bytes) => bytes,
+        Err(_) =>  return Ok(false)
+    };
     
     let cursor = Cursor::new(bytes);
     let mut zip = ZipArchive::new(cursor)?;
     _ = zip.extract(path);
-    Ok(())
+    Ok(true)
 }
