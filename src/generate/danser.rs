@@ -14,6 +14,8 @@ use zip::ZipArchive;
 use tokio::{fs::{File, create_dir}, io::AsyncWriteExt};
 
 use crate::discord_helper::ContextForFunctions;
+use crate::firebase::user;
+use crate::generate::danser;
 use crate::{Error, embeds};
 
 fn fallback_latest_rendered_video(output_dir: &str, started_at: SystemTime) -> Option<String> {
@@ -73,9 +75,16 @@ pub async fn render(cff: &ContextForFunctions<'_>, title: &String, beatmap_hash:
     let mut out = Command::new(&danser_cli);
 
     out.args(["-replay", replay_path, "-record"]);
-    if Path::new(skin_path).is_dir() {
-        out.args(["-skin", &user_id.to_string()]);
-    }
+    match user::get_user_skin(&user_id.to_string()).await {
+        Some(url) => {
+            if !Path::new(skin_path).is_dir() {
+                danser::attach_skin_file(*user_id, &url).await?;
+            }
+            out.args(["-skin", &user_id.to_string()]);
+        },
+        None => ()
+    };
+
     let mut danser_terminal = out
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
