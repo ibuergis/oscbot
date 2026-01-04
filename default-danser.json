@@ -579,8 +579,8 @@
     "DanserName": "danser"
   },
   "Recording": {
-    "FrameWidth": 2560,
-    "FrameHeight": 1440,
+    "FrameWidth": 1280,
+    "FrameHeight": 720,
     "FPS": 60,
     "EncodingFPSCap": 0,
     "Encoder": "h264_nvenc",
@@ -604,7 +604,7 @@
       "Bitrate": "10M",
       "CQ": 16,
       "Profile": "high",
-      "Preset": "p7",
+      "Preset": "p3",
       "AdditionalOptions": ""
     },
     "hevc_nvenc": {
@@ -668,7 +668,7 @@
     "Container": "mp4",
     "ShowFFmpegLogs": true,
     "MotionBlur": {
-      "Enabled": true,
+      "Enabled": false,
       "OversampleMultiplier": 16,
       "BlendFrames": 24,
       "BlendFunctionID": 27,
