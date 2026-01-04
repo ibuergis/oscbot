@@ -26,6 +26,18 @@ RUN cargo build --release \
 
 FROM git.sulej.net/osc/skins-image:latest
 
+USER root
+
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+      libglvnd0 \
+      libgl1 \
+      libegl1 \
+  && rm -rf /var/lib/apt/lists/*
+
+ENV LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64:${LD_LIBRARY_PATH}
+
+ENV __GLX_VENDOR_LIBRARY_NAME=nvidia
+
 ENV OSC_BOT_DANSER_PATH=/app/danser
 ENV PATH="/app/danser:${PATH}"
 
