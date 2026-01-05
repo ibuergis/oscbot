@@ -35,6 +35,7 @@ async fn main() {
             on_error: |error| {
                 Box::pin(discord_helper::handle_error(error))
             },
+            command_check: Some(|ctx| Box::pin(discord_helper::global_check(ctx))),
             ..Default::default()
         })
         .setup(|ctx, _ready, framework| {
