@@ -37,7 +37,7 @@ pub async fn set(
     let user = match osu::get_osu_instance().user(username).await {
         Ok(user) => user,
         Err(_) =>  {
-            single_text_response(&ctx, "Your username is not related to your osu!account. Please inform the mods to rename you!", MessageState::SUCCESS, false).await;
+            single_text_response(&ctx, "Your username is not related to your osu!account. Please inform the mods to rename you!", MessageState::WARN, false).await;
             return Ok(())
         }
     };
@@ -79,7 +79,7 @@ pub async fn get(
     let skin = firebase::user::get_user_skin(&player.user_id.to_string()).await;
     match skin {
         Some(skin) => {
-            ctx.send(CreateReply::default().embed(CreateEmbed::default().author(CreateEmbedAuthor::new(format!("Skins: {}", username))).description(&skin).url(&skin))).await?;
+            ctx.send(CreateReply::default().embed(CreateEmbed::default().author(CreateEmbedAuthor::new(format!("Skins: {}", username))).description("Click to download").url(&skin))).await?;
         },
         None => single_text_response(&ctx, "This user has not saved a skin", MessageState::INFO, false).await,
     };

@@ -1,7 +1,7 @@
 use poise::CreateReply;
 use poise::serenity_prelude::{self as serenity, CacheHttp, CreateEmbed, CreateInteractionResponseMessage};
 
-use crate::Context;
+use crate::{Context, firebase};
 use crate::{Data, Error, embeds::single_text_response};
 use crate::defaults::{REPLAY_ROLE, SERVER};
 
@@ -84,5 +84,14 @@ pub async fn user_has_replay_role(ctx: impl CacheHttp, user: &serenity::User) ->
     if !member.roles.contains(&REPLAY_ROLE) {
         return Ok(false);
     }
+    Ok(true)
+}
+
+pub async fn global_check(ctx: Context<'_>) -> Result<bool, Error> {
+    if firebase::user::user_is_in_blacklist(&ctx.author().id.to_string()).await {
+        single_text_response(&ctx, "You are blacklisted", MessageState::INFO, true).await;
+        return Ok(false)
+    }
+
     Ok(true)
 }
