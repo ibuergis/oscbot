@@ -60,23 +60,23 @@ pub async fn get(
     ctx: Context<'_>,
     #[description = "Desired member"] member: Option<serenity::Member>,
 ) -> Result<(), Error> {
-    let discord_user = match &member {
-        Some(member) => member.user.clone(),
-        None => ctx.author().clone(),
-    };
-
-    let username: String = match &member {
-        Some(member) => {
-            let user = member.clone();
-            user.display_name().to_string()
-        },
+    let username = match &member {
+        Some(member) => member.display_name().to_string(),
         None => {
-            let author = ctx.author_member().await.expect("Member must exist").clone();
-            author.display_name().to_string()
-        },
+            let member = ctx.author_member().await.unwrap();
+            member.display_name().to_string()
+        }
     };
 
-    let skin = firebase::user::get_user_skin(&discord_user.id.to_string()).await;
+    let player = match osu::get_osu_instance().user(&username).await {
+        Ok(user) => user,
+        Err(_) =>  {
+            single_text_response(&ctx, "Your username is not related to your osu!account. Please inform the mods to rename you!", MessageState::SUCCESS, false).await;
+            return Ok(())
+        }
+    };
+    
+    let skin = firebase::user::get_user_skin(&player.user_id.to_string()).await;
     match skin {
         Some(skin) => {
             ctx.send(CreateReply::default().embed(CreateEmbed::default().author(CreateEmbedAuthor::new(format!("Skins: {}", username))).description(&skin).url(&skin))).await?;
