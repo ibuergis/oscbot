@@ -61,9 +61,9 @@ pub enum MessageState {
 }
 
 pub async fn handle_error(error: poise::FrameworkError<'_, Data, Error>) -> () {
-    let print_fatal_error = match &error {
-        poise::FrameworkError::CommandCheckFailed { .. } => false,
-        poise::FrameworkError::MissingUserPermissions { .. } => false,
+    match &error {
+        poise::FrameworkError::CommandCheckFailed { .. } => return (),
+        poise::FrameworkError::MissingUserPermissions { .. } => return (),
         poise::FrameworkError::MissingBotPermissions { .. } => {
             match error.ctx() {
                 Some(ctx) => {
@@ -71,40 +71,21 @@ pub async fn handle_error(error: poise::FrameworkError<'_, Data, Error>) -> () {
                 },
             None => (),
             };
-            false
+            return ()
         },
-        poise::FrameworkError::Setup { error, .. } => {
-            tracing::error!(error);
-            true
-        },
-        poise::FrameworkError::EventHandler { error, .. } => {
-            tracing::error!(error);
-            true
-        },
-        poise::FrameworkError::CommandPanic { payload, ctx,  .. } => {
-            tracing::error!(payload);
-            single_text_response(ctx, "Something went wrong. blame Mikumin.", MessageState::ERROR, false).await;
-            false
-        },
-        poise::FrameworkError::Command { error, ctx, .. } => {
-            tracing::error!(error);
-            single_text_response(ctx, "Something went wrong. blame Mikumin.", MessageState::ERROR, false).await;
-            false
-        },
-        poise::FrameworkError::DynamicPrefix { error, .. } => {
-            tracing::error!(error);
-            true
-        },
-        _ => true
+        poise::FrameworkError::Setup { error, .. } => tracing::error!(error),
+        poise::FrameworkError::EventHandler { error, .. } => tracing::error!(error),
+        poise::FrameworkError::CommandPanic { payload,  .. } => tracing::error!(payload),
+        poise::FrameworkError::Command { error, .. } => tracing::error!(error),
+        poise::FrameworkError::DynamicPrefix { error, .. } => tracing::error!(error),
+        _ => ()
     };
 
-    if print_fatal_error {
-        match error.ctx() {
-            Some(ctx) => {
-                single_text_response(&ctx, "Something went wrong. blame Mikumin.", MessageState::ERROR, false).await;
-            },
-            None => (),
-        }
+    match error.ctx() {
+        Some(ctx) => {
+            single_text_response(&ctx, "Something went wrong. blame Mikumin.", MessageState::ERROR, false).await;
+        },
+        None => (),
     };
 }
 
