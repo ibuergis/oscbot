@@ -1,6 +1,8 @@
 use poise::serenity_prelude as serenity;
 use tracing_subscriber::{EnvFilter, fmt};
 
+use crate::events::background_tasks;
+
 mod embeds;
 mod firebase;
 mod apis;
@@ -62,6 +64,8 @@ async fn main() {
         .setup(|ctx, _ready, framework| {
             Box::pin(async move {
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+                
+                background_tasks::start_background_tasks(&ctx).await;
                 Ok(Data {})
             })
         })

@@ -3,6 +3,7 @@ use poise::serenity_prelude as serenity;
 
 use crate::{Data, Error};
 
+pub mod background_tasks;
 mod message_event;
 mod button_actions;
 

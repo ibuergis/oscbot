@@ -25,3 +25,11 @@ pub static SUGGESTIONS_CHANNEL: LazyLock<serenity::ChannelId> = LazyLock::new(||
         .expect("OSC_BOT_REQUEST_CHANNEL must be u64");
     serenity::ChannelId::new(id)
 });
+
+pub static NEW_VIDEOS_CHANNEL: LazyLock<serenity::ChannelId> = LazyLock::new(|| {
+    let id: u64 = std::env::var("OSC_BOT_NEW_VIDEOS_CHANNEL")
+        .expect("OSC_BOT_NEW_VIDEOS_CHANNEL not set")
+        .parse()
+        .expect("OSC_BOT_NEW_VIDEOS_CHANNEL must be u64");
+    serenity::ChannelId::new(id)
+});
