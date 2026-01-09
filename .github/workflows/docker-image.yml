@@ -73,12 +73,12 @@ jobs:
             echo "OSCBOT_CODEGEN_UNITS=16" >> "$GITHUB_OUTPUT"
             echo "EOF" >> "$GITHUB_OUTPUT"
             echo "tags=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${SHA_SHORT}" >> "$GITHUB_OUTPUT"
-
+          
             echo "dev_build_args<<EOF" >> "$GITHUB_OUTPUT"
             echo "OSCBOT_PROFILE=debug" >> "$GITHUB_OUTPUT"
             echo "OSCBOT_INCREMENTAL=1" >> "$GITHUB_OUTPUT"
             echo "EOF" >> "$GITHUB_OUTPUT"
-            echo "dev_tags=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev" >> "$GITHUB_OUTPUT"
+            echo "dev_tags=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev-${SHA_SHORT}" >> "$GITHUB_OUTPUT"
           else
             echo "profile=debug" >> "$GITHUB_OUTPUT"
             echo "build_args<<EOF" >> "$GITHUB_OUTPUT"
