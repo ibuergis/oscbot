@@ -1,16 +1,59 @@
 use std::collections::HashMap;
 
-use crate::firebase::get_firebase_instance;
+use firebase_rs::Firebase;
+use poise::ChoiceParameter;
 
-pub async fn get_user_skin(osu_user_id: &String) -> Option<String> {
-    match get_firebase_instance().at("users").at(osu_user_id).at("skin").get::<String>().await {
+use crate::{firebase::get_firebase_instance, osu::skin::DEFAULTS};
+
+fn path_to_skins(osu_user_id: &String) -> Firebase {
+    get_firebase_instance()
+        .at("users")
+        .at(osu_user_id)
+        .at("skins")
+}
+
+pub async fn get_skin_by_identifier(osu_user_id: &String, identifier: &String) -> Option<String> {
+    match path_to_skins(osu_user_id)
+        .at("list")
+        .at(identifier)
+        .get::<String>().await {
         Ok(skin) => Some(skin),
         Err(_) => None
     }
 }
 
-pub async fn save_skin(osu_user_id: &String, skin: &String) {
-    get_firebase_instance().at("users").at(osu_user_id).set_with_key("skin", skin).await.unwrap();
+pub async fn get_skin_by_default(osu_user_id: &String, default: &DEFAULTS) -> Option<String> {
+    match path_to_skins(osu_user_id)
+        .at("defaults")
+        .at(default.name())
+        .get::<String>().await {
+        Ok(skin) => Some(skin),
+        Err(_) => None
+    }
+}
+
+pub async fn save_skin(osu_user_id: &String, skin: &String, identifier: &String, default: &DEFAULTS) {
+    path_to_skins(osu_user_id)
+        .at("list")
+        .at(identifier)
+        .set_with_key("url", skin)
+        .await
+        .unwrap();
+
+    path_to_skins(osu_user_id)
+        .at("list")
+        .at(identifier)
+        .set_with_key("default", &default.name().to_string());
+    
+    if *default != DEFAULTS::NODEFAULT {
+        path_to_skins(osu_user_id)
+        .at("defaults")
+        .set_with_key(default.name(), skin).await.unwrap();
+    }
+}
+
+pub async fn delete_skin(osu_user_id: &String, skin: &String, identifier: &String, default: &DEFAULTS) {
+
 }
 
 pub async fn add_to_blacklist(discord_user_id: &String) {

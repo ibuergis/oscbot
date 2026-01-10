@@ -4,7 +4,6 @@ use tracing_subscriber::{EnvFilter, fmt};
 use crate::events::background_tasks;
 
 mod embeds;
-mod firebase;
 mod apis;
 mod osu;
 mod emojis;
@@ -13,6 +12,7 @@ mod commands;
 mod events;
 mod generate;
 mod discord_helper;
+mod sqlite;
 
 #[derive(Debug)]
 struct Data {} // User data, which is stored and accessible in all command invocations
@@ -43,9 +43,9 @@ async fn main() {
     tracing::info!("starting up...");
     osu::initialize_osu().await.unwrap();
     tracing::info!("osu!api initialized!");
-    firebase::initialize_firebase().await.unwrap();
-    tracing::info!("firebase initialized!");
 
+    sqlite::initialize_sqlite().await.unwrap();
+    tracing::info!("sqlite initialized!");
     let token = std::env::var("OSC_BOT_DISCORD_TOKEN").expect("missing OSC_BOT_DISCORD_TOKEN");
     let intents = serenity::GatewayIntents::all();
 

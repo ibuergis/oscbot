@@ -5,6 +5,7 @@ use rosu_v2::prelude as rosu;
 use crate::{Error};
 
 pub mod formatter;
+pub mod skin;
 
 static OSU: OnceLock<rosu::Osu> = OnceLock::new();
 

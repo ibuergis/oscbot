@@ -25,3 +25,4 @@ tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt"] }
 quick-xml = "0.38.4"
 anyhow = "1.0.100"
+sqlx = { version = "0.8.6", features = ["sqlite", "runtime-tokio-rustls", "macros"] }

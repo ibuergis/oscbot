@@ -1,7 +1,7 @@
 use poise::{CreateReply, serenity_prelude::{self as serenity, CreateEmbed, CreateEmbedAuthor}};
 use url::Url;
 
-use crate::{Context, Error, discord_helper::MessageState, embeds::single_text_response, firebase, generate::danser, osu};
+use crate::{Context, Error, discord_helper::MessageState, embeds::single_text_response, osu, sqlite};
 use crate::discord_helper::user_has_replay_role;
 
 async fn has_replay_role(ctx: Context<'_>) -> Result<bool, Error> {
@@ -25,6 +25,8 @@ pub async fn bundle(_ctx: Context<'_>, _arg: String) -> Result<(), Error> { Ok((
 pub async fn set(
     ctx: Context<'_>,
     #[description = "link to your skin"] url: String,
+    #[description = "Name to reference your skin"] identifier: String,
+    #[description = "default for when you upload the gamemode. If HDDT is not set, the DT skin will be used instead."] default: osu::skin::DEFAULTS,
 ) -> Result<(), Error> {
     ctx.defer().await?;
     if !is_url(&url) || !url.starts_with("https://git.sulej.net/") || !url.ends_with(".osk") {
@@ -42,14 +44,29 @@ pub async fn set(
         }
     };
 
-    let skin_upload_successful = danser::attach_skin_file(user.user_id, &url).await.unwrap();
+    let user = match sqlite::user::find_by_discord(member.user.id.into()).await.unwrap() {
+        Some(user) => user,
+        None => sqlite::user::User::create(user.user_id, member.user.id.into(), false).await.unwrap()
+    };
+
+    let skin_upload_successful = osu::skin::download(&url).await?.is_some();
 
     if !skin_upload_successful {
         single_text_response(&ctx, "The skin file could not be downloaded", MessageState::WARN, false).await;
         return Ok(());
     }
 
-    firebase::user::save_skin(&user.user_id.to_string(), &url).await;
+    match sqlite::skin::find_by_identifier(&member.user.id.into(), &identifier).await? {
+        Some(mut skin) => {
+            skin.url = url;
+            skin.default = default;
+            skin.update().await?;
+        },
+        None => {
+            sqlite::skin::Skin::create(&user, &url, &identifier, &default).await.unwrap();
+        },
+    };
+
     single_text_response(&ctx, "Skin has been saved", MessageState::SUCCESS, false).await;
     Ok(())
 }
@@ -59,6 +76,7 @@ pub async fn set(
 pub async fn get(
     ctx: Context<'_>,
     #[description = "Desired member"] member: Option<serenity::Member>,
+    #[description = "leave empty for all skins"] identifier: Option<String>,
 ) -> Result<(), Error> {
     let username = match &member {
         Some(member) => member.display_name().to_string(),
@@ -68,6 +86,11 @@ pub async fn get(
         }
     };
 
+    let user_id = match &member {
+        Some(member) => member.user.id,
+        None => ctx.author().id
+    };
+
     let player = match osu::get_osu_instance().user(&username).await {
         Ok(user) => user,
         Err(_) =>  {
@@ -75,14 +98,37 @@ pub async fn get(
             return Ok(())
         }
     };
+
+    let user = match sqlite::user::find_by_discord(user_id.into()).await.unwrap() {
+        Some(user) => user,
+        None => sqlite::user::User::create(player.user_id, user_id.into(), false).await.unwrap()
+    };
     
-    let skin = firebase::user::get_user_skin(&player.user_id.to_string()).await;
-    match skin {
-        Some(skin) => {
-            ctx.send(CreateReply::default().embed(CreateEmbed::default().author(CreateEmbedAuthor::new(format!("Skins: {}", username))).title("Click to download").url(&skin))).await?;
+    let skins = match identifier {
+        Some(identifier) => {
+            match sqlite::skin::find_by_identifier(&user.id, &identifier).await? {
+                Some(skin) => vec![skin],
+                None => {
+                    single_text_response(&ctx, "This user has not a skin with that identifier", MessageState::INFO, false).await;
+                    return Ok(())
+                }
+            }
         },
-        None => single_text_response(&ctx, "This user has not saved a skin", MessageState::INFO, false).await,
+        None => {
+            sqlite::skin::find_all_by_user(&user.id).await?
+        }
     };
 
+    if skins.is_empty() {
+        single_text_response(&ctx, "This user has not saved a skin", MessageState::INFO, false).await;
+        return Ok(());
+    }
+
+    let mut embed = CreateEmbed::default().author(CreateEmbedAuthor::new(format!("Skins: {}", username)));
+    for skin in skins {
+        embed = embed.field("", format!("[{}]({})", skin.identifier, skin.url), false);
+    }
+
+    ctx.send(CreateReply::default().embed(embed)).await.unwrap();
     Ok(())
 }

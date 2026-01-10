@@ -2,7 +2,7 @@ use std::vec;
 
 use poise::serenity_prelude::{self as serenity, CreateButton, CreateEmbed, ReactionType};
 use rosu_v2::prelude as rosu;
-use crate::{Context, Error, defaults, discord_helper::MessageState, embeds, firebase, generate::danser, osu};
+use crate::{Context, Error, defaults, discord_helper::MessageState, embeds, generate::danser, osu, sqlite};
 
 #[poise::command(slash_command, rename = "suggest", subcommands("score"), required_permissions = "SEND_MESSAGES")]
 pub async fn bundle(_ctx: Context<'_>, _arg: String) -> Result<(), Error> { Ok(()) }
@@ -22,7 +22,7 @@ pub async fn score(
     ctx.defer().await?;
     if scoreid.is_some() {
         let unwrapped_score_id = scoreid.unwrap();
-        if firebase::score::score_already_saved(&unwrapped_score_id.to_string()).await {
+        if sqlite::score::score_exists(&unwrapped_score_id.to_string()).await? {
             embeds::single_text_response(&ctx, &format!("Score {} has already been requested", unwrapped_score_id), MessageState::WARN, false).await;
             return Ok(());
         }
@@ -43,7 +43,7 @@ pub async fn score(
         embed = embeds::score_embed_from_score(&score, &map, reason).await?;
         mode = score.mode;
         parameters = format!("{}:{}:{}:{}", "scoreid".to_string(), score.id.to_string(), map.map_id, requesting_user);
-        firebase::score::insert_score(&unwrapped_score_id.to_string()).await;
+        sqlite::score::insert_score(&unwrapped_score_id.to_string()).await?;
 
     }
     else if scorefile.is_some() {
@@ -57,7 +57,7 @@ pub async fn score(
         };
         let default_checksum = "".to_string();
         let replay_checksum = replay.replay_hash.as_ref().unwrap_or(&default_checksum);
-        if firebase::score::score_already_saved(replay_checksum).await {
+        if sqlite::score::score_exists(replay_checksum).await? {
             embeds::single_text_response(&ctx, "Score file has already been requested", MessageState::WARN, false).await;
             return Ok(());
         }
@@ -72,7 +72,7 @@ pub async fn score(
         embed = embeds::score_embed_from_replay_file(&replay, &map, reason).await?;
         mode = rosu::GameMode::from(replay.mode.raw());
         parameters = format!("{}:{}:{}:{}", "replayfile".to_string(), replay_checksum.clone(), map.map_id, requesting_user);
-        firebase::score::insert_score(replay_checksum).await;
+        sqlite::score::insert_score(replay_checksum).await?;
     }
     else {
         embeds::single_text_response(&ctx, "Please define scoreid or scorefile", MessageState::WARN, false).await;

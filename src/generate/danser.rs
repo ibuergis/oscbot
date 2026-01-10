@@ -15,7 +15,6 @@ use zip::ZipArchive;
 use tokio::{fs::{File, create_dir}, io::AsyncWriteExt};
 
 use crate::discord_helper::ContextForFunctions;
-use crate::firebase::user;
 use crate::{Error, embeds};
 
 fn fallback_latest_rendered_video(output_dir: &str, started_at: SystemTime) -> Option<String> {
@@ -76,15 +75,15 @@ pub async fn render(cff: &ContextForFunctions<'_>, title: &String, beatmap_hash:
     let mut out = Command::new(&danser_cli);
 
     out.args(["-replay", replay_path, "-record"]);
-    match user::get_user_skin(&user_id.to_string()).await {
-        Some(url) => {
-            if !Path::new(skin_path).is_dir() {
-                attach_skin_file(*user_id, &url).await?;
-            }
-            out.args(["-skin", &user_id.to_string()]);
-        },
-        None => ()
-    };
+    // match user::get_user_skin(&user_id.to_string()).await {
+    //     Some(url) => {
+    //         if !Path::new(skin_path).is_dir() {
+    //             attach_skin_file(*user_id, &url).await?;
+    //         }
+    //         out.args(["-skin", &user_id.to_string()]);
+    //     },
+    //     None => ()
+    // };
 
     let mut danser_terminal = out
         .stdout(Stdio::piped())
@@ -251,7 +250,6 @@ pub async fn cleanup_files(beatmap_hash: &String, replay_reference: &String, vid
 }
 
 pub async fn attach_skin_file(user_id: u32, url: &String) -> Result<bool, Error> {
-    tracing::debug!(user_id = user_id, url = url, "Save skin and tie to user...");
     let path = &format!("{}/Skins/{}", env::var("OSC_BOT_DANSER_PATH").unwrap(), user_id);
     _ = remove_dir(path);
     let client = reqwest::Client::new();
