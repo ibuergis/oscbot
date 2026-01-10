@@ -1,6 +1,6 @@
 use futures_util::future::join_all;
 
-use crate::{Error, osu::skin::DEFAULTS, sqlite::{self, user::{self, User}}};
+use crate::{Error, osu::skin::DEFAULT, sqlite::{self, user::{self, User}}};
 
 #[derive(Debug)]
 pub struct Skin {
@@ -8,15 +8,15 @@ pub struct Skin {
     pub user: User,
     pub identifier: String,
     pub url: String,
-    pub default: DEFAULTS,
+    pub default: DEFAULT,
 }
 
 impl Skin {
-    pub async fn from_db_skin (db_skin: &DbSkin) -> Skin {
+    async fn from_db_skin (db_skin: &DbSkin) -> Skin {
         let user = user::find(db_skin.user).await.unwrap().unwrap();
         let default = match db_skin.default {
             Some(default) => default,
-            None => DEFAULTS::NODEFAULT
+            None => DEFAULT::NODEFAULT
         };
         Skin {
             id: db_skin.id,
@@ -31,9 +31,16 @@ impl Skin {
         user: &User,
         identifier: &String,
         url: &String,
-        default: &DEFAULTS
+        default: &DEFAULT
     ) -> Result<Skin, Error> {
-        let result = sqlx::query(r#"INSERT INTO skin (user, identifier, url, default) VALUES (?, ?, ?, ?)"#)
+        let skin = find_by_default(&user.id, &default).await?;
+        if skin.is_some() {
+            let mut unwrapped_skin = skin.unwrap();
+            unwrapped_skin.default = DEFAULT::NODEFAULT;
+            unwrapped_skin.update().await?;
+        }
+
+        let result = sqlx::query(r#"INSERT INTO skin (user, identifier, url, "default") VALUES (?, ?, ?, ?)"#)
             .bind(user.id)
             .bind(identifier)
             .bind(url)
@@ -43,7 +50,7 @@ impl Skin {
         Ok(find(&result.last_insert_rowid()).await?.expect("Skin must exist"))
     }
 
-    pub async fn update (self) -> Result<(), Error> {
+    pub async fn unsafe_update (self) -> Result<(), Error> {
         let pool = sqlite::get_sqlite_instance();
         sqlx::query(
             r#"
@@ -63,6 +70,32 @@ impl Skin {
 
         Ok(())
     }
+
+    pub async fn update (self) -> Result<(), Error> {
+        let skin = find_by_default(&self.user.id, &self.default).await?;
+        if skin.is_some() {
+            let mut unwrapped_skin = skin.unwrap();
+            unwrapped_skin.default = DEFAULT::NODEFAULT;
+            if self.id != unwrapped_skin.id {
+                unwrapped_skin.unsafe_update().await?;
+            }
+        }
+        self.unsafe_update().await
+    }
+
+    pub async fn delete (self) -> Result<(), Error> {
+        let pool = sqlite::get_sqlite_instance();
+        sqlx::query(
+            r#"
+            DELETE FROM skin
+            WHERE id = ?
+                "#)
+            .bind(self.id)
+            .execute(pool)
+            .await?;
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -71,28 +104,16 @@ struct DbSkin {
     user: i64,
     identifier: String,
     url: String,
-    default: Option<DEFAULTS>,
+    default: Option<DEFAULT>,
 }
 
-impl DbSkin {
-    pub fn from_skin(skin: Skin) -> DbSkin {
-        DbSkin {
-            id: skin.id,
-            user: skin.user.id,
-            identifier: skin.identifier,
-            url: skin.url,
-            default: if skin.default != DEFAULTS::NODEFAULT {Some(skin.default)} else {None},
-        }
-    }
-}
-
-fn convert_default_for_db(default: DEFAULTS) -> Option<DEFAULTS> {
-    if default != DEFAULTS::NODEFAULT {Some(default)} else {None}
+fn convert_default_for_db(default: DEFAULT) -> Option<DEFAULT> {
+    if default != DEFAULT::NODEFAULT {Some(default)} else {None}
 }
 
 pub async fn find(id: &i64) -> Result<Option<Skin>, sqlx::Error> {
     let pool = sqlite::get_sqlite_instance();
-    let db_skin = sqlx::query_as::<_, DbSkin>(r#"SELECT id, user, identifier, url, default FROM "skin" WHERE id = ?"#)
+    let db_skin = sqlx::query_as::<_, DbSkin>(r#"SELECT id, user, identifier, url, "default" FROM "skin" WHERE id = ?"#)
         .bind(id)
         .fetch_optional(pool)
         .await?;
@@ -105,7 +126,7 @@ pub async fn find(id: &i64) -> Result<Option<Skin>, sqlx::Error> {
 
 pub async fn find_all_by_user(user_id: &i64) -> Result<Vec<Skin>, sqlx::Error> {
     let pool = sqlite::get_sqlite_instance();
-    let db_skins = sqlx::query_as::<_, DbSkin>(r#"SELECT id, user, identifier, url, default FROM "skin" WHERE user = ?"#)
+    let db_skins = sqlx::query_as::<_, DbSkin>(r#"SELECT id, user, identifier, url, "default" FROM "skin" WHERE user = ?"#)
         .bind(user_id)
         .fetch_all(pool)
         .await?;
@@ -114,9 +135,9 @@ pub async fn find_all_by_user(user_id: &i64) -> Result<Vec<Skin>, sqlx::Error> {
     Ok(join_all(skins).await)
 }
 
-pub async fn find_by_default(user_id: &i64, default: &DEFAULTS) -> Result<Option<Skin>, sqlx::Error> {
+pub async fn find_by_default(user_id: &i64, default: &DEFAULT) -> Result<Option<Skin>, sqlx::Error> {
     let pool = sqlite::get_sqlite_instance();
-    let db_skin = sqlx::query_as::<_, DbSkin>(r#"SELECT id, user, identifier, url, default FROM "skin" WHERE user = ? AND default = ?"#)
+    let db_skin = sqlx::query_as::<_, DbSkin>(r#"SELECT id, user, identifier, url, "default" FROM "skin" WHERE user = ? AND "default" = ?"#)
         .bind(user_id)
         .bind(default)
         .fetch_optional(pool)
@@ -130,7 +151,7 @@ pub async fn find_by_default(user_id: &i64, default: &DEFAULTS) -> Result<Option
 
 pub async fn find_by_identifier(user_id: &i64, identifier: &String) -> Result<Option<Skin>, sqlx::Error> {
     let pool = sqlite::get_sqlite_instance();
-    let db_skin = sqlx::query_as::<_, DbSkin>(r#"SELECT id, user, identifier, url, default FROM "skin" WHERE user = ? AND identifier = ?"#)
+    let db_skin = sqlx::query_as::<_, DbSkin>(r#"SELECT id, user, identifier, url, "default" FROM "skin" WHERE user = ? AND lower(identifier) = lower(?)"#)
         .bind(user_id)
         .bind(identifier)
         .fetch_optional(pool)

@@ -1,3 +1,4 @@
+-- Add migration script here
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE "user" (
@@ -19,5 +20,5 @@ CREATE TABLE "skin" (
 );
 
 CREATE TABLE "score" (
-    "identifier" TEXT,
+    "identifier" TEXT PRIMARY KEY
 );

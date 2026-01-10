@@ -3,7 +3,7 @@ use rosu_v2::prelude as rosu;
 use rosu_v2::prelude::BeatmapExtended;
 use crate::discord_helper::{ContextForFunctions, MessageState};
 use crate::embeds::{single_text_response, single_text_response_embed};
-use crate::{Context, Error, embeds};
+use crate::{Context, Error, embeds, sqlite};
 
 use crate::osu;
 use crate::generate::{danser, thumbnail, upload, youtube_text};
@@ -135,6 +135,7 @@ pub async fn render_and_upload (
     #[description = "score id"] scoreid: Option<u64>,
     #[description = "score file"] scorefile: Option<serenity::Attachment>,
     #[description = "subtitle inside the thumbnail"] subtitle: Option<String>,
+    #[description = "identifier for skin (searches by player)"] identifier: Option<String>,
 ) -> Result<(), Error> {
     ctx.defer().await?;
     let reply = ctx.send(CreateReply::default().embed(embeds::render_and_upload_embed(&"...".into(), false, None, false)?)).await?;
@@ -168,6 +169,9 @@ pub async fn render_and_upload (
         let beatmap_hash = map.checksum.as_ref().unwrap().clone();
         let replay_reference = score.id.to_string();
         danser::attach_replay(&beatmap_hash, &replay_reference, &replay).await.unwrap();
+        let mods: Vec<rosu::GameMod> = score.mods.into_iter().collect();
+        let user = sqlite::user::find_by_osu(&score.user_id).await?.unwrap();
+        let skin = danser::resolve_correct_skin(user, identifier, mods).await?;
         upload::render_and_upload_by_score(&cff, score, map, subtitle).await?;
     }
     else if scorefile.is_some() {

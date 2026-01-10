@@ -66,7 +66,7 @@ pub async fn find_by_discord(discord_id: i64) -> Result<Option<User>, sqlx::Erro
     Ok(user)
 }
 
-pub async fn find_by_osu(osu_id: u32) -> Result<Option<User>, sqlx::Error> {
+pub async fn find_by_osu(osu_id: &u32) -> Result<Option<User>, sqlx::Error> {
     let pool = sqlite::get_sqlite_instance();
     let user = sqlx::query_as::<_, User>(r#"SELECT id, osu_id, discord_id, is_blacklisted FROM "user" WHERE osu_id = ?"#)
         .bind(osu_id)

@@ -5,6 +5,7 @@ use std::env;
 use std::path::Path;
 use std::collections::VecDeque;
 use std::time::{Duration, SystemTime};
+use rosu_v2::prelude::{GameMod, GameMods};
 use tokio::fs;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use std::io::Write;
@@ -13,9 +14,62 @@ use tokio::sync::mpsc;
 use zip::ZipArchive;
 
 use tokio::{fs::{File, create_dir}, io::AsyncWriteExt};
+use tracing::Level;
 
 use crate::discord_helper::ContextForFunctions;
-use crate::{Error, embeds};
+use crate::sqlite::user::User;
+use crate::{Error, embeds, sqlite};
+
+fn is_ffmpeg_progress_line(line: &str) -> bool {
+    let l = line.trim_start();
+
+    if l.starts_with("frame=") {
+        return true;
+    }
+
+    l.contains("frame=") && l.contains("fps=") && l.contains("time=") && l.contains("speed=")
+}
+
+fn danser_stream_line_level(line: &str) -> Level {
+    let l = line.trim();
+    if l.is_empty() {
+        return Level::TRACE;
+    }
+
+    if l.contains("Progress: ") {
+        return Level::INFO;
+    }
+
+    if l.contains("danser-go version") {
+        return Level::DEBUG;
+    }
+    if l.starts_with("ffmpeg version ") {
+        return Level::DEBUG;
+    }
+    if l.starts_with("libav") {
+        return Level::DEBUG;
+    }
+
+    if is_ffmpeg_progress_line(l) {
+        if l.contains("q=-1.0") {
+            return Level::DEBUG;
+        }
+        return Level::INFO;
+    }
+
+    if l.contains("video:0KiB") && l.contains("audio:") && l.contains("muxing overhead") {
+        return Level::DEBUG;
+    }
+
+    if l.contains("video:") && l.contains("audio:") && l.contains("muxing overhead") {
+        return Level::DEBUG;
+    }
+    if l.contains("Starting second pass: moving the moov atom") {
+        return Level::DEBUG;
+    }
+
+    Level::TRACE
+}
 
 fn fallback_latest_rendered_video(output_dir: &str, started_at: SystemTime) -> Option<String> {
     let start_slack = started_at.checked_sub(Duration::from_secs(10)).unwrap_or(started_at);
@@ -61,10 +115,10 @@ fn fallback_latest_rendered_video(output_dir: &str, started_at: SystemTime) -> O
     best.map(|(_, _, p)| p)
 }
 
-pub async fn render(cff: &ContextForFunctions<'_>, title: &String, beatmap_hash: &String, replay_reference: &String, user_id: &u32) -> Result<String, Error> {
+pub async fn render(cff: &ContextForFunctions<'_>, title: &String, beatmap_hash: &String, replay_reference: &String) -> Result<String, Error> {
     tracing::info!("Begin rendering replay");
     let started_at = SystemTime::now();
-    let skin_path = &format!("{}/Skins/{}", env::var("OSC_BOT_DANSER_PATH").unwrap(), user_id);
+    let skin_path = &format!("{}/Skins/{}", env::var("OSC_BOT_DANSER_PATH").unwrap(), replay_reference);
     let replay_path = &format!("{}/Replays/{}/{}.osr", env::var("OSC_BOT_DANSER_PATH").unwrap(), beatmap_hash, replay_reference);
 
     let danser_cli = env::var("OSC_BOT_DANSER_CLI").unwrap_or("danser-cli".to_string());
@@ -133,12 +187,14 @@ pub async fn render(cff: &ContextForFunctions<'_>, title: &String, beatmap_hash:
                 };
 
                 if stream_logs {
-                    if stream == "stderr" {
-                        tracing::info!("[danser {stream}] {line}");
-                    } else {
-                        tracing::debug!("[danser {stream}] {line}");
+                    let level = danser_stream_line_level(&line);
+                    match level {
+                        Level::ERROR => tracing::error!("[danser {stream}] {line}"),
+                        Level::WARN => tracing::warn!("[danser {stream}] {line}"),
+                        Level::INFO => tracing::info!("[danser {stream}] {line}"),
+                        Level::DEBUG => tracing::debug!("[danser {stream}] {line}"),
+                        Level::TRACE => tracing::trace!("[danser {stream}] {line}"),
                     }
-                    // Ensure logs show up promptly in non-tty Docker logging.
                     let _ = std::io::stdout().flush();
                     let _ = std::io::stderr().flush();
                 }
@@ -249,8 +305,8 @@ pub async fn cleanup_files(beatmap_hash: &String, replay_reference: &String, vid
     _ = remove_file(video_path);
 }
 
-pub async fn attach_skin_file(user_id: u32, url: &String) -> Result<bool, Error> {
-    let path = &format!("{}/Skins/{}", env::var("OSC_BOT_DANSER_PATH").unwrap(), user_id);
+pub async fn attach_skin_file(replay_reference: &String, url: &String) -> Result<bool, Error> {
+    let path = &format!("{}/Skins/{}", env::var("OSC_BOT_DANSER_PATH").unwrap(), replay_reference);
     _ = remove_dir(path);
     let client = reqwest::Client::new();
     let resp = client.get(url).send().await?.error_for_status()?;
@@ -267,4 +323,12 @@ pub async fn attach_skin_file(user_id: u32, url: &String) -> Result<bool, Error>
     _ = zip.extract(path);
     tracing::debug!(url = url, path = path, "Skin has been extracted and saved");
     Ok(true)
+}
+
+pub async fn resolve_correct_skin(user: User, identifier: Option<String>, mods: Vec<GameMod>) -> Result<Skin, Error> {
+    if identifier.is_some() {
+        return sqlite::skin::find_by_identifier(&user.id, &identifier.unwrap()).await?.unwrap();
+    }
+
+    
 }

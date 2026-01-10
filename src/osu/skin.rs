@@ -4,7 +4,7 @@ use crate::{Error};
 
 #[derive(Debug, Clone, Copy, PartialEq, ChoiceParameter, sqlx::Type)]
 #[sqlx(type_name = "TEXT", rename_all = "lowercase")]
-pub enum DEFAULTS {
+pub enum DEFAULT {
     #[name = "Default"]
     DEFAULT,
     #[name = "NM"]
@@ -23,6 +23,22 @@ pub enum DEFAULTS {
     HDHR,
     #[name = "No default"]
     NODEFAULT,
+}
+
+impl DEFAULT {
+    pub fn to_string(self) -> String {
+        match self {
+            DEFAULT::DEFAULT => "Default".to_string(),
+            DEFAULT::NM => "NM".to_string(),
+            DEFAULT::HD => "HD".to_string(),
+            DEFAULT::DT => "DT".to_string(),
+            DEFAULT::HR => "HR".to_string(),
+            DEFAULT::EZ => "EZ".to_string(),
+            DEFAULT::HDDT => "HDDT".to_string(),
+            DEFAULT::HDHR => "HDHR".to_string(),
+            DEFAULT::NODEFAULT => "No default".to_string(),
+        }
+    }
 }
 
 pub async fn download(url: &String) -> Result<Option<Vec<u8>>, Error> {
