@@ -2,6 +2,7 @@ use poise::serenity_prelude::{ self as serenity, ComponentInteraction, CreateAtt
 use rosu_v2::prelude::BeatmapExtended;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use crate::db::entities::user;
+use crate::defaults::EMPTY_VALUE;
 use crate::discord_helper::{ContextForFunctions, MessageState, user_has_replay_role};
 use crate::osu::formatter::convert_osu_db_to_mod_array;
 use crate::osu::get_osu_instance;
@@ -17,11 +18,12 @@ struct ScoreMapping {
     reference: String,
     map: BeatmapExtended,
     score_type: ScoreType,
-    requesting_user: serenity::User
+    requesting_user: serenity::User,
+    skin_identifier: Option<String>
 }
 
 impl ScoreMapping {
-    async fn new(ctx: &serenity::Context, contents: [&str; 4]) -> ScoreMapping {
+    async fn new(ctx: &serenity::Context, contents: [&str; 5]) -> ScoreMapping {
         let user_id: u64 = contents[3].parse().expect("not a u64");
         let user = ctx.http.get_user(user_id.into()).await.unwrap();
         let map = get_osu_instance().beatmap().map_id(contents[2].parse().unwrap()).await.unwrap();
@@ -33,7 +35,8 @@ impl ScoreMapping {
                 "replayfile" => ScoreType::ReplayFile,
                 _ => ScoreType::ScoreId
             },
-            requesting_user: user
+            requesting_user: user,
+            skin_identifier: if contents[4] == EMPTY_VALUE {None} else {Some(contents[4].into())},
         }
     }
 }
@@ -61,7 +64,7 @@ pub async fn handle_click(ctx: &serenity::Context, component: &ComponentInteract
 
     let _ = match identifier {
         "approveWithUpload" => {
-            let score = ScoreMapping::new(ctx, data.try_into().expect("Data must have 3 values")).await;
+            let score = ScoreMapping::new(ctx, data.try_into().expect("Data must have 4 values")).await;
             let title = match score.score_type {
                 ScoreType::ScoreId => upload_score_by_score(ctx, component, &score).await.unwrap(),
                 ScoreType::ReplayFile => upload_score_by_replay(ctx, component, &score).await.unwrap(),
@@ -72,7 +75,7 @@ pub async fn handle_click(ctx: &serenity::Context, component: &ComponentInteract
         },
         "approveNoUpload" => {
             component.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::default().content("Loading content..."))).await?;
-            let score = ScoreMapping::new(ctx, data.try_into().expect("Data must have 3 values")).await;
+            let score = ScoreMapping::new(ctx, data.try_into().expect("Data must have 4 values")).await;
             let title = match score.score_type {
                 ScoreType::ScoreId => get_score_metadata_by_score(ctx, component, &score).await.unwrap(),
                 ScoreType::ReplayFile => get_score_metadata_by_replay(ctx, component, &score).await.unwrap(),
@@ -119,12 +122,12 @@ async fn upload_score_by_replay(ctx: &serenity::Context, component: &serenity::C
     cff.send(embeds::render_and_upload_embed(&"...".to_string(), false, None, false)?).await?;
     let user = user::Entity::find().filter(user::Column::OsuId.eq(player.user_id)).one(&db::get_db()).await?;
     let mods = convert_osu_db_to_mod_array(replay.mods);
-    let skin = danser::resolve_correct_skin(user, None, mods).await?;
+    let skin = danser::resolve_correct_skin(user, score.skin_identifier.clone(), mods).await?;
     upload::render_and_upload_by_replay(&cff, replay, score.map.clone(),  player,None, skin).await?;
     Ok(title)
 }
 
-async fn upload_score_by_score(ctx: &serenity::Context, component: &serenity::ComponentInteraction, score: &ScoreMapping) -> Result<String, Error> {
+async fn upload_score_by_score(ctx: &serenity::Context, component: &serenity::ComponentInteraction, score_mapping: &ScoreMapping) -> Result<String, Error> {
     let mut cff = ContextForFunctions {
         command_context: None,
         reply: None,
@@ -133,7 +136,7 @@ async fn upload_score_by_score(ctx: &serenity::Context, component: &serenity::Co
     };
 
     cff.send(embeds::render_and_upload_embed(&"...".to_string(), false, None, false)?).await?;
-    let score_id: u64 = score.reference.parse().unwrap();
+    let score_id: u64 = score_mapping.reference.parse().unwrap();
     let score = osu::get_osu_instance().score(score_id).await.expect("Score must exist");
     let replay_bytes = osu::get_osu_instance().replay_raw(score_id).await.unwrap();
     let map = osu::get_osu_instance().beatmap().map_id(score.map_id).await.expect("Beatmap must exist");
@@ -141,7 +144,7 @@ async fn upload_score_by_score(ctx: &serenity::Context, component: &serenity::Co
     danser::attach_replay(&map.checksum.as_ref().unwrap(), &score_id.to_string(), &replay_bytes).await?;
     let user = user::Entity::find().filter(user::Column::OsuId.eq(score.user_id)).one(&db::get_db()).await?;
     let acronym_mods: Vec<String> = score.mods.iter().map(|game_mod| game_mod.acronym().to_string()).collect();
-    let skin = danser::resolve_correct_skin(user, None, acronym_mods).await?;
+    let skin = danser::resolve_correct_skin(user, score_mapping.skin_identifier.clone(), acronym_mods).await?;
     upload::render_and_upload_by_score(&cff, score, map, None, skin).await?;
     Ok(title)
 }

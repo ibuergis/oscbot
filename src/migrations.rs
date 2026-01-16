@@ -14,6 +14,5 @@ pub async fn update_migrations() -> Result<(), Error> {
     // runs pending migrations from ./migrations
     sqlx::migrate!("./migrations").run(&pool).await?;
 
-    pool.close().await;
     Ok(())
 }

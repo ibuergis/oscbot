@@ -42,7 +42,7 @@ pub async fn get_user_by_discord_id_or_create(discord_id: i64, osu_id: i32) -> R
 pub async fn get_skin_by_identifier(user: user::Model, identifier: String) -> Result<Option<skin::Model>, Error> {
     Ok(skin::Entity::find()
         .filter(skin::Column::User.eq::<i64>(user.id as i64))
-        .filter(skin::Column::Identifier.eq(identifier))
+        .filter(skin::Column::Identifier.like(format!("%{}%", identifier)))
         .one(&get_db()).await?)
 }
 

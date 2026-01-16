@@ -1,4 +1,4 @@
-use std::fs::{remove_dir, remove_file};
+use std::fs::{remove_dir_all, remove_file};
 use std::io::Cursor;
 use std::process::Stdio;
 use std::env;
@@ -297,14 +297,14 @@ pub async fn cleanup_files(beatmap_hash: &String, replay_reference: &String, vid
     tracing::debug!(reference = replay_reference, "Cleanup files for replay...");
     let replay_path = &format!("{}/Replays/{}/{}.osr", env::var("OSC_BOT_DANSER_PATH").unwrap(), beatmap_hash, replay_reference);
     let path = &format!("{}/Skins/{}", env::var("OSC_BOT_DANSER_PATH").unwrap(), replay_reference);
-    _ = remove_dir(path);
-    _ = remove_file(replay_path);
-    _ = remove_file(video_path);
+    remove_dir_all(path).ok();
+    remove_file(replay_path).ok();
+    remove_file(video_path).ok();
 }
 
 pub async fn attach_skin_file(replay_reference: &String, url: &String) -> Result<bool, Error> {
     let path = &format!("{}/Skins/{}", env::var("OSC_BOT_DANSER_PATH").unwrap(), replay_reference);
-    _ = remove_dir(path);
+    remove_dir_all(path).ok();
     let client = reqwest::Client::new();
     let resp = client.get(url).send().await?.error_for_status()?;
 

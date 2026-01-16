@@ -1,7 +1,7 @@
 use poise::serenity_prelude::CreateAttachment;
 use rosu_v2::prelude as rosu;
 
-use crate::{Error, apis::{youtube}, discord_helper::{ContextForFunctions}, embeds, generate::{danser, thumbnail, youtube_text}};
+use crate::{Error, apis::youtube, db::entities::skin, discord_helper::ContextForFunctions, embeds, generate::{danser, thumbnail, youtube_text}};
 use crate::apis;
 
 pub async fn render_and_upload_by_score(

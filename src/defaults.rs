@@ -1,6 +1,7 @@
 use std::sync::LazyLock;
 use poise::serenity_prelude as serenity;
 
+pub const EMPTY_VALUE: &str = "EmptyValue";
 
 pub static REPLAY_ROLE: LazyLock<serenity::RoleId> = LazyLock::new(|| {
     let id: u64 = std::env::var("OSC_BOT_REPLAY_ADMIN_ROLE")
