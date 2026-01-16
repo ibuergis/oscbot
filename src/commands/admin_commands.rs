@@ -81,7 +81,7 @@ pub async fn remove(
         }
     };
 
-    db_user.is_blacklisted = Set(true);
+    db_user.is_blacklisted = Set(false);
     db_user.update(&db::get_db()).await?;
     single_text_response(&ctx, &format!("User {} has been removed from the blacklist", user.mention().to_string()), MessageState::SUCCESS, false).await;
     Ok(())
